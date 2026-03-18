@@ -20,9 +20,11 @@
 * **Hạ tầng hiện tại:** Kiến trúc Microservices được triển khai toàn bộ trên nền tảng Docker nội bộ.
 * **Kịch bản giả định:** Kẻ tấn công được giả định là một cá nhân đã có quyền truy cập vào mạng nội bộ (LAN/Wi-Fi công ty) hoặc đã chiếm quyền điều khiển một thiết bị trong mạng (mô hình Assume Breach).
 * **Phạm vi:** Các API và Web UI chạy trên Host `fptevent.local`, các port: `3000, 3306, 8080, 8081, 8082, 8083, 8084, 8085, 8086`.
-* **Giới hạn kiểm thử:** Chưa đánh giá rủi ro an toàn mạng nội bộ giữa các container (Container-to-Container lateral movement) trong trường hợp một node bị xâm nhập.
+* **Giới hạn kiểm thử:**
+  - Chưa đánh giá rủi ro an toàn mạng nội bộ giữa các container (Container-to-Container lateral movement) trong trường hợp một node bị xâm nhập.
+  - Chưa thể đánh giá bảo mật toàn diện `File Uploading Vulnerabilities` do môi trường Local thiếu cấu hình biến môi trường kết nối đến AWS S3.
 * **Phương pháp:** Black-box/Grey-box testing từ xa qua mạng LAN, kết hợp White-box review cấu hình Docker.
-* **Công cụ sử dụng:** Nmap, Burp Suite, Trình duyệt web.
+* **Công cụ sử dụng:** Nmap, Burp Suite, OWASP ZAP, Trình duyệt web.
 
 ---
 
@@ -109,6 +111,25 @@
     * Thay đổi mật khẩu tài khoản `root` thành chuỗi mật khẩu mạnh và an toàn.
     * Áp dụng nguyên tắc Đặc quyền tối thiểu: Tạo một tài khoản MySQL riêng biệt (ví dụ: `fptevent_user`) chỉ có quyền thao tác (SELECT, INSERT, UPDATE) trên đúng database `fpteventmanagement` để cung cấp cho ứng dụng Backend, tuyệt đối không dùng tài khoản `root`.
 
+#### 3. Sensitive Information Exposure via Development Server `OWASP A02:2025 - Security Misconfiguration`
+
+* **Mức độ:** Cao.
+* **Mô tả:** Qua quá trình rà quét hệ thống bằng công cụ OWASP ZAP, phát hiện mãy chủ frontend đang được vận hành bằng Development Vite thay vì bản build Production. Việc cấu hình như này trong giai đoạn đóng gói docker local khiến máy chủ không nén (`minify`) hay làm rối (`obfuscate`), mã nguồn mà trực tiếp phơi bày toàn bộ cấu trúc thư mục gốc, mã nguồn và danh sách thư viện gốc của dự án ra bên ngoài.
+* **Proof of Concept (PoC):**
+  1. Đứng từ máy tấn công (Kali Linux), sử dụng OWASP ZAP thực hiện thu thập các endpoint của mục tiêu `http://fptevent.local:3000`.
+  2. Kết quả trả về hàng loạt các đường dẫn chứa mã nguồn gốc chưa qua biên dịch, bao gồm:
+  - `http://fptevent.local:3000/src/App.tsx`
+  - `http://fptevent.local:3000/src/pages/AdminDashboard.tsx`
+  - `http://fptevent.local:3000/src/utils/imageUpload.ts`
+  - Hàng loạt thư viện phụ thuộc tại `http://fptevent.local:3000/node_modules/.vite/deps/...`
+  3. Kẻ tấn công có thể truy cập trực tiếp các file này trên trình duyệt và có thể phân tích logic hệ thống dễ dàng.
+* **Tác động:**
+  - **Source Code Disclousure:** Cung cấp cho kẻ tấn công bản đồ kiến trúc frontend hoàn chỉnh. Nhờ đó, chúng có thể dễ dàng phân tích các thuật toán kiểm tra tính hợp lệ nhằm chế tạo các payload qua mặt hệ thống phòng thủ.
+  - **Suply Chain Exposure:** Việc lộ lọt các thư viện phụ thuộc sẽ giúp kẻ tấn công xác định được chính xác phiên bản của từng thư viện được sử dụng, từ đó đối chiếu với cac CVEs để tìm các lỗ hổng đã biết và tấn công khai thác.
+* **Khuyến nghị khắc phục:**
+  * **Dev:** Chỉnh sửa lại `Dockerfile` của frontend, tuyệt đối không sử dụng `npm run dev` để chạy container. Thay vào đó, sử dụng `npm run build`, sau đó sử dụng một Web Server (như Nginx alpine) để phục vụ thư mục `dist/` tĩnh được sinh ra.
+  * **DevOps:** Khi thiết kế hạ tầng AWS, đảm bảo Frontend phải được host trên `AWS S3 kết hợp CloudFront`, chặn đứng hoàn toàn rủi ro trên môi trường Development khi đưa lên Production.
+
 ### 3.2. Nhóm lỗi Backend & API Services
 
 #### 1. Internal Authentication Bypass & Data Exposure `OWASP A01:2025 - Broken Access Control`
@@ -140,7 +161,7 @@
 
 * **Mức độ:** Cao.
 * **Mô tả:** Qua quá trình phân tích mã nguồn Frontend và kiểm thử động, phát hiện tính năng "Quên mật khẩu" hoàn toàn không có cơ chế chống tự động hóa và giới hạn tần suất. Mã nguồn `src/pages/ResetPassword.tsx` không tích hợp Google reCAPTCHA. Phía Backend cũng không áp dụng giới hạn số lượng request gọi đến API gửi email OTP.
-* **Proof of Concept:**
+* **Proof of Concept (PoC):**
     1. Truy cập chức năng Quên mật khẩu trên giao diện frontend.
     2. Nhập 1 địa chỉ email bất kỳ và nhấn "Gửi mã OTP"
     3. Sử dụng BurpSuite để Intercept request `POST /api/forgot-password`.
@@ -164,7 +185,7 @@
   * **Mô tả:** Hệ thống Frontend gặp phải 2 lỗi thiết kế nghiêm trọng trong việc quản lý phiên đăng nhập:
     * **Lưu trữ không an toàn:** Token JWT được lưu trữ tại `localStorage`. Trình duyệt cho phép bất kỳ mã JavaScript nào cũng có thể truy xuất vùng nhớ này, khiến hệ thống cực kỳ nhạy cảm với các cuộc tấn công Cross-Site Scripting (XSS).
     * **Client-Side Access Control Bypass:** Frontend sử dụng đối tượng `user` lưu dưới dạng JSON plain-text trong `localStorage` để quyết định hiển thị Menu và Route dành riêng cho Admin/Staff.
-  * **Proof of Concept:**
+  * **Proof of Concept (PoC):**
     1. Đăng nhập vào hệ thống bằng tài khoản sinh viên (email: <an.nvse14001@fpt.edu.vn>; role: STUDENT).
     2. F12 mở Developer Tools ${\rightarrow}$ Application/Storage ${\rightarrow}$ Local Storage.
     3. Quan sát thấy JWT Token được lưu tại key `token`, thông tin người dùng lưu tại `user`.
@@ -181,9 +202,15 @@
     * Lưu trữ JWT bằng `Cookies` với các flag `HttpOnly`, `Secure`, `SameSite=Strict` để ngăn chặn JavaScript truy cập.
     * Không lưu trữ trực tiếp `user` dưới dạng plain-text ở LocalStorage. Đề xuất cho frontend gọi một API định danh (`api/auth/me`) mỗi khi load trang nhạy cảm để xác minh quyền hạn từ backend trước khi render giao diện.
 
+### 3.4. Nhóm lỗi Logic Nghiệp vụ
+
+
+
 ## 4. ĐIỂM SÁNG BẢO MẬT & THÔNG TIN BỔ SUNG
 
 Môi trường hiện tại là Local Docker, do đó một số cấu hình mạng và mã hóa mang tính chất mặc định của nền tảng. Tuy nhiên, để chuẩn bị cho giai đoạn đưa hệ thống lên hạ tầng AWS Production, cần lưu ý các điểm sau:
 
 * **Mã hóa đường truyền (In-Transit Encryption):** Các cổng giao tiếp của Frontend (3000) và API Gateway (8080) hiện đang chạy HTTP thuần (Plain-text). Khi lên AWS, **bắt buộc** phải cấu hình TLS/SSL (HTTPS) tại lớp Load Balancer (ALB) hoặc API Gateway để mã hóa toàn bộ lưu lượng giao tiếp với người dùng cuối, chống lại các cuộc tấn công nghe lén (Sniffing/MiTM).
 * **Quản lý biến môi trường (Secrets Management):** Tuyệt đối không tái sử dụng các mật khẩu cơ sở dữ liệu hoặc `INTERNAL_SECRET_KEY` từ môi trường Local đưa lên Production. Cần sử dụng các dịch vụ chuyên dụng như AWS Secrets Manager hoặc Parameter Store để quản lý key thay vì hardcode trong file `.env`.
+* **Kiểm soát phân quyền cấp API (Strict Authorization):** Mặc dù frontend bị vượt qua do lỗi lưu trữ LocalStorage, backend API vẫn thực hiện xác thực quyền (Role-based Access Control) cực kỳ chặt chẽ, các nổ lực nhằm leo thang đặc quyền đều bị chặn đứng với mã lỗi `403 Forbidden`.
+* **Tích hợp thanh toán an toàn (Secure Payment Gateway):** Luồng tạo giao dịch thanh toán được thiết kế bảo mật. Chữ ký số được tính toán tại backend, ngăn chặn thành công tấn công thao túng tham số khi kẻ tấn công cố tình đổi giá vé trên đường truyền.
