@@ -45,7 +45,32 @@
 
 ### 3.1. Nhóm lỗi Cấu hình mội trường & Hạ tầng
 
-#### 1. VULN-03 - Architecture Misconfiguration `OWASP A02:2025 - Security Misconfiguration`
+#### 3.1.1. VULN-01 - Direct Database Compromise via Weak/Default Root Credentials `OWASP A07:2025 - Authentication Failures`
+
+* **Mức độ:** Nghiêm trọng.
+* **Mô tả:** Cơ sở dữ liệu MySQL (3306) không chỉ bị bộc lộ ra ngoài mà còn cho phép kết nối từ xa (remote access) vào tài khoản `root` với mật khẩu yếu. Kết hợp với việc cấu hình SSL lỏng lẻo, kẻ tấn công có thể dễ dàng chiếm toàn quyền kiểm soát hệ thống cơ sở dữ liệu.
+* **Proof of Concept (PoC):**
+    1. Kẻ tấn công sử dụng công cụ dòng lệnh MySQL kết nối thẳng từ máy Kali Linux vào máy chủ bằng tài khoản `root` và cờ `--skip-ssl`:
+    `mysql -h fptevent.local -u root -p --skip-ssl`
+    2. Đăng nhập thành công và thực thi truy cập trích xuất dữ liệu từ bảng `users` trong cơ sở dữ liệu `fpteventmanagement`:
+
+    ```sql
+    MySQL [(none)]> USE fpteventmanagement;
+    MySQL [fpteventmanagement]> SELECT * FROM users;
+    ```
+
+    3. Kết quả trả về chứa toàn bộ thông tin người dùng:
+
+    ![alt text](pentest_report_images/3.png)
+
+* **Tác động:** Kẻ tấn công có toàn quyền kiểm soát dữ liệu 100%. Chúng có thể đọc, sửa, xóa toàn bộ thông tin dự án, thao túng số dư ví điện tử, trộm thông tin cá nhân và mang các chuỗi `password_hash` về máy tính cá nhân để tiến hành bẻ khóa ngoại tuyến (Offline Cracking).
+* **Khuyến nghị khắc phục:**
+  * **Dev:**
+    * Cấu hình lại MySQL, tắt tính năng cho phép tài khoản `root` đăng nhập từ xa (chỉ cho phép `root@localhost`).
+    * Thay đổi mật khẩu tài khoản `root` thành chuỗi mật khẩu mạnh và an toàn.
+    * Áp dụng nguyên tắc Đặc quyền tối thiểu: Tạo một tài khoản MySQL riêng biệt (ví dụ: `fptevent_user`) chỉ có quyền thao tác (SELECT, INSERT, UPDATE) trên đúng database `fpteventmanagement` để cung cấp cho ứng dụng Backend, tuyệt đối không dùng tài khoản `root`.
+
+#### 3.1.2. VULN-03 - Architecture Misconfiguration `OWASP A02:2025 - Security Misconfiguration`
 
 * **Mức độ:** Cao.
 * **Mô tả:** File docker-compose.yml do Dev cung cấp cho môi trường Local đang bộc lộ tất cả các port của microservices (8081-8086) và Database (3306) ra ngoài 0.0.0.0 thay vì chỉ dùng mạng nội bộ Docker.
@@ -98,33 +123,8 @@
 * **Khuyến nghị khắc phục:**
   * **Dev:** Sửa lại file docker-compose.yml local, gỡ bỏ ports: ở các service Backend và database.
   * **DevOps:** Khi phác thảo kiến trúc AWS (VPC, Subnet), phải thiết kế Security Group chặt chẽ, chỉ mở port 80/443 ở lớp Load Balancer/API Gateway.
-  
-#### 2. VULN-01 - Direct Database Compromise via Weak/Default Root Credentials `OWASP A07:2025 - Authentication Failures`
 
-* **Mức độ:** Nghiêm trọng.
-* **Mô tả:** Cơ sở dữ liệu MySQL (3306) không chỉ bị bộc lộ ra ngoài mà còn cho phép kết nối từ xa (remote access) vào tài khoản `root` với mật khẩu yếu. Kết hợp với việc cấu hình SSL lỏng lẻo, kẻ tấn công có thể dễ dàng chiếm toàn quyền kiểm soát hệ thống cơ sở dữ liệu.
-* **Proof of Concept (PoC):**
-    1. Kẻ tấn công sử dụng công cụ dòng lệnh MySQL kết nối thẳng từ máy Kali Linux vào máy chủ bằng tài khoản `root` và cờ `--skip-ssl`:
-    `mysql -h fptevent.local -u root -p --skip-ssl`
-    2. Đăng nhập thành công và thực thi truy cập trích xuất dữ liệu từ bảng `users` trong cơ sở dữ liệu `fpteventmanagement`:
-
-    ```sql
-    MySQL [(none)]> USE fpteventmanagement;
-    MySQL [fpteventmanagement]> SELECT * FROM users;
-    ```
-
-    3. Kết quả trả về chứa toàn bộ thông tin người dùng:
-
-    ![alt text](pentest_report_images/3.png)
-
-* **Tác động:** Kẻ tấn công có toàn quyền kiểm soát dữ liệu 100%. Chúng có thể đọc, sửa, xóa toàn bộ thông tin dự án, thao túng số dư ví điện tử, trộm thông tin cá nhân và mang các chuỗi `password_hash` về máy tính cá nhân để tiến hành bẻ khóa ngoại tuyến (Offline Cracking).
-* **Khuyến nghị khắc phục:**
-  * **Dev:**
-    * Cấu hình lại MySQL, tắt tính năng cho phép tài khoản `root` đăng nhập từ xa (chỉ cho phép `root@localhost`).
-    * Thay đổi mật khẩu tài khoản `root` thành chuỗi mật khẩu mạnh và an toàn.
-    * Áp dụng nguyên tắc Đặc quyền tối thiểu: Tạo một tài khoản MySQL riêng biệt (ví dụ: `fptevent_user`) chỉ có quyền thao tác (SELECT, INSERT, UPDATE) trên đúng database `fpteventmanagement` để cung cấp cho ứng dụng Backend, tuyệt đối không dùng tài khoản `root`.
-
-#### 3. VULN-04 - Sensitive Information Exposure via Development Server `OWASP A02:2025 - Security Misconfiguration`
+#### 3.1.3. VULN-04 - Sensitive Information Exposure via Development Server `OWASP A02:2025 - Security Misconfiguration`
 
 * **Mức độ:** Cao.
 * **Mô tả:** Qua quá trình rà quét hệ thống bằng công cụ OWASP ZAP, phát hiện mayy chủ Frontend đang được vận hành bằng Development Vite thay vì bản build Production. Việc cấu hình như này trong giai đoạn đóng gói docker local khiến máy chủ không nén (`minify`) hay làm rối (`obfuscate`), mã nguồn mà trực tiếp phơi bày toàn bộ cấu trúc thư mục gốc, mã nguồn và danh sách thư viện gốc của dự án ra bên ngoài.
@@ -145,7 +145,7 @@
 
 ### 3.2. Nhóm lỗi Backend & API Services
 
-#### 1. VULN-02 - Internal Authentication Bypass & Data Exposure `OWASP A01:2025 - Broken Access Control`
+#### 3.2.1. VULN-02 - Internal Authentication Bypass & Data Exposure `OWASP A01:2025 - Broken Access Control`
 
 * **Mức độ:** Nghiêm trọng.
 * **Mô tả:** Hệ thống áp dụng cơ chế bảo mật thiếu an toàn (Security by Obscurity) cho các luồng giao tiếp nội bộ giữa các microservices. Qua rà soát mã nguồn và kiểm thử thực tế tại cổng 8081 (Auth/User Service), API nội bộ `/internal/user/profiles` chỉ dựa vào một HTTP Header tĩnh là `x-internal-call: true` để cấp quyền truy cập mà không có cơ chế xác minh danh tính mã hóa nào.
@@ -170,27 +170,7 @@
 * **Khuyến nghị khắc phục:**
   * **Dev:** Loại bỏ việc kiểm tra quyền bằng Header tĩnh `x-internal-call`. Thiết lập cơ chế xác thực Service-to-Service an toàn. Phương án khả thi nhất hiện tại là sử dụng một **INTERNAL_SECRET_KEY** dùng chung (lưu trong file `.env`) để tạo hàm băm (**HMAC**) xác thực request, hoặc cấp phát một **Internal JWT** dành riêng cho các microservices giao tiếp với nhau.
 
-#### 2. VULN-07 - Missing Anti-Automation and Rate Limiting on Password Reset API `OWASP A06:2025 - Insecure Design`
-
-* **Mức độ:** Cao.
-* **Mô tả:** Qua quá trình phân tích mã nguồn Frontend và kiểm thử động, phát hiện tính năng "Quên mật khẩu" hoàn toàn không có cơ chế chống tự động hóa và giới hạn tần suất. Mã nguồn `src/pages/ResetPassword.tsx` không tích hợp Google reCAPTCHA. Phía Backend cũng không áp dụng giới hạn số lượng request gọi đến API gửi email OTP.
-* **Proof of Concept (PoC):**
-    1. Truy cập chức năng Quên mật khẩu trên giao diện Frontend.
-    2. Nhập 1 địa chỉ email bất kỳ và nhấn "Gửi mã OTP"
-    3. Sử dụng BurpSuite để Intercept request `POST /api/forgot-password`.
-    4. Đưa request này qua `Repeater` và thực hiện gửi hàng loạt 20 requests liên tục.
-    5. Kết qua: toàn bộ 20 requests đều trả về `200 OK`, không có bất kỳ request nào bị chặn lại bởi lỗi `429 Too Many Requests` hay các cơ chế chống Spam khác.
-
-    ![alt text](./pentest_report_images/4.png)
-
-* **Tác động:**
-  * **Email Spaming:** Kẻ tấn công có thể sử dụng công cụ tự động để gửi hàng ngàn requests OTP đến một hộp thư mục tiêu, gây gián đoạn công việc của nạn nhân.
-  * **Resource Exhaustion:** Lạm dụng API này sẽ ép máy chủ Backend liên tục gọi đến dịch vụ email (SMTP/SES) gây rủi ro phát sinh chi phí không đáng có và tên miền bị đưa vào danh sách đen do hành vi gửi thư rác.
-* **Khuyến nghị khắc phục:**
-  * **Backend/API Gateway:** áp dụng cơ chế Rate Limiting cho endpoint `/api/forgot-password` (Giới hạn 1 IP hoặc 1 Email chỉ được yêu cầu gửi OTP tối đa 3 lần/giờ).
-  * **Frontend & Backend:** Tích hợp Google reCaptcha vào form Quên mật khẩu và bắt buộc Backend phải xác thực token trước khi gửi email.
-
-#### 3. VULN-05 - Cryptographic Failures via Weak Password Hashing `OWASP A04:2025 - Cryptographic Failures`
+#### 3.2.2. VULN-05 - Cryptographic Failures via Weak Password Hashing `OWASP A04:2025 - Cryptographic Failures`
 
   * **Mức độ:** Cao.
   * **Mô tả:** Qua quá trình trích xuất dữ liệu người dùng từ Database, phát hiện hệ thống Backend đang lưu trữ mật khẩu người dùng bằng các thuật toán băm yếu và không sử dụng Salt. Việc thiếu cơ chế Salt ngẫu nhiên khiến các chuỗi Hash trở thành dạng tĩnh (cùng mật khẩu sẽ cho ra cùng chuỗi Hash giống hệt nhau). Điều này khiến hệ thông cực kỳ dễ bị tổn thương trước các cuộc Offline Cracking bằng tử điển hoặc Rainbow Tables.
@@ -212,7 +192,27 @@
    - Loại bỏ các thuật toán băm cũ (MD5, SHA-1, SHA-256 thuần), chuyển sang sử dụng các thuật toán băm mật khẩu chuyên dụng có tích hợp sẵn cơ chế sinh Salt ngẫu nhiên và tốn chi phí tính toán (BCrypt, Argon2, hoặc Scrypt).
    - Trong nền tảng Golang, khuyến nghị sử dụng các thư viện chuẩn `golang.org/x/crypto/bcrypt` để xử lý hàm băm mật khẩu khi đăng ký và kiểm tra đăng nhập. Mức độ chi phí (Work Factor) nên được cấu hình từ 10 đén 12 cân bằng giữa bảo mật và hiệu năng máy chủ.
 
-#### 4. VULN-08 - Insecure CORS Policy & Duplicate Headers `OWASP A02:2025 - Security Misconfiguration`
+#### 3.2.3. VULN-07 - Missing Anti-Automation and Rate Limiting on Password Reset API `OWASP A06:2025 - Insecure Design`
+
+* **Mức độ:** Cao.
+* **Mô tả:** Qua quá trình phân tích mã nguồn Frontend và kiểm thử động, phát hiện tính năng "Quên mật khẩu" hoàn toàn không có cơ chế chống tự động hóa và giới hạn tần suất. Mã nguồn `src/pages/ResetPassword.tsx` không tích hợp Google reCAPTCHA. Phía Backend cũng không áp dụng giới hạn số lượng request gọi đến API gửi email OTP.
+* **Proof of Concept (PoC):**
+    1. Truy cập chức năng Quên mật khẩu trên giao diện Frontend.
+    2. Nhập 1 địa chỉ email bất kỳ và nhấn "Gửi mã OTP"
+    3. Sử dụng BurpSuite để Intercept request `POST /api/forgot-password`.
+    4. Đưa request này qua `Repeater` và thực hiện gửi hàng loạt 20 requests liên tục.
+    5. Kết qua: toàn bộ 20 requests đều trả về `200 OK`, không có bất kỳ request nào bị chặn lại bởi lỗi `429 Too Many Requests` hay các cơ chế chống Spam khác.
+
+    ![alt text](./pentest_report_images/4.png)
+
+* **Tác động:**
+  * **Email Spaming:** Kẻ tấn công có thể sử dụng công cụ tự động để gửi hàng ngàn requests OTP đến một hộp thư mục tiêu, gây gián đoạn công việc của nạn nhân.
+  * **Resource Exhaustion:** Lạm dụng API này sẽ ép máy chủ Backend liên tục gọi đến dịch vụ email (SMTP/SES) gây rủi ro phát sinh chi phí không đáng có và tên miền bị đưa vào danh sách đen do hành vi gửi thư rác.
+* **Khuyến nghị khắc phục:**
+  * **Backend/API Gateway:** áp dụng cơ chế Rate Limiting cho endpoint `/api/forgot-password` (Giới hạn 1 IP hoặc 1 Email chỉ được yêu cầu gửi OTP tối đa 3 lần/giờ).
+  * **Frontend & Backend:** Tích hợp Google reCaptcha vào form Quên mật khẩu và bắt buộc Backend phải xác thực token trước khi gửi email.
+
+#### 3.2.4. VULN-08 - Insecure CORS Policy & Duplicate Headers `OWASP A02:2025 - Security Misconfiguration`
 
   * **Mức độ:** Trung bình.
   * **CVSS v3.1:** 5.3 `CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N`
@@ -264,6 +264,8 @@
     * Lưu trữ JWT bằng `Cookies` với các flag `HttpOnly`, `Secure`, `SameSite=Strict` để ngăn chặn JavaScript truy cập.
     * Không lưu trữ trực tiếp `user` dưới dạng plain-text ở LocalStorage. Đề xuất cho Frontend gọi một API định danh (`api/auth/me`) mỗi khi load trang nhạy cảm để xác minh quyền hạn từ Backend trước khi render giao diện.
 
+---
+
 ## 4. ĐIỂM SÁNG BẢO MẬT & THÔNG TIN BỔ SUNG
 
 Môi trường hiện tại là Local Docker, do đó một số cấu hình mạng và mã hóa mang tính chất mặc định của nền tảng. Tuy nhiên, để chuẩn bị cho giai đoạn đưa hệ thống lên hạ tầng AWS Production, cần lưu ý các điểm sau:
@@ -277,6 +279,8 @@ Môi trường hiện tại là Local Docker, do đó một số cấu hình m�
 * **Phân quyền cấp độ Object (IDOR/BOLA Protection):** Chức năng Check-in tại cổng sự kiện áp dụng xác thực chéo (Cross-ownership) nghiêm ngặt. Chỉ Organizer chính chủ mới được phép thao tác quét vé trên sự kiện của mình.
 * **Kiểm soát thời gian Check-in (Time-based State Machine): Ngăn triệt để hành vi Check-in trươc thời gian quy định (`checkinAllowedBeforeStartMinutes`).
 * **Cô lập hệ thống tin (File System Isolation):** Mặc dù Database bị xâm nhập, biến `secure_file_priv`của MySQL được cấu hình chuẩn mực `/var/lib/mysql-files/`, chặn đứng hoàn chiến thuật leo thang đặc quyền từ Database lên hệ điều hành (RCE thông qua INTO OUTFILE).
+
+---
 
 ## 5. ĐÁNH GIÁ SAU KHẮC PHỤC
 
