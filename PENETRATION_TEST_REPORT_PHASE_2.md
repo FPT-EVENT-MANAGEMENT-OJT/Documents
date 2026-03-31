@@ -147,7 +147,7 @@ Connection to RDS 10.0.1.136:3306 [tcp/mysql] succeeded!
   }
   ```
 
-* **Tác động:** Thông tin xác root của Cơ sở dữ liệu bị bộc lộ hoàn toàn dưới dạng bản rõ. Hệ quả trực tiếp là bất kỳ cá nhân, tiến trình hoặc công cụ nào có quyền đọc (read-access) kho lưu trữ mã nguồn Terraform này đều lập tức nắm giữ thông tin đăng nhập tĩnh của RDS. Lỗ hổng này cung cấp trực tiếp mảnh ghép "Định danh hợp lệ", loại bỏ hoàn toàn rào cản xác thực mà không cần kẻ tấn công phải thực hiện bất kỳ kỹ thuật dò đoán (brute-force) hay bẻ khóa nào.
+* **Tác động:** Thông tin xác thực root của Cơ sở dữ liệu bị bộc lộ hoàn toàn dưới dạng bản rõ. Hệ quả trực tiếp là bất kỳ cá nhân, tiến trình hoặc công cụ nào có quyền đọc (read-access) kho lưu trữ mã nguồn Terraform này đều lập tức nắm giữ thông tin đăng nhập tĩnh của RDS. Lỗ hổng này cung cấp trực tiếp mảnh ghép "Định danh hợp lệ", loại bỏ hoàn toàn rào cản xác thực mà không cần kẻ tấn công phải thực hiện bất kỳ kỹ thuật dò đoán (brute-force) hay bẻ khóa nào.
 * **Khuyến nghị khắc phục:** 
   * Khởi tạo mật khẩu động thông qua resource **random_password** trong Terraform thay vì gán giá trị chuỗi tĩnh.
   * Đẩy mật khẩu này vào lưu trữ tại **AWS Secrets Manager** hoặc **AWS SSM Parameter Store**. Các tài nguyên cần sử dụng mật khẩu (như ECS Task Definitions) sẽ gọi biến môi trường trực tiếp từ dịch vụ Secret thay vì đọc từ mã nguồn IaC.
@@ -259,7 +259,7 @@ Connection to RDS 10.0.1.136:3306 [tcp/mysql] succeeded!
   | 489 |
 
   *Ghi chú kỹ thuật:* Do Docker Image chưa được đẩy lên ECR và cấu hình `ecs.tf` chưa cập nhật *(test trên hệ thống tự build)*, ECS không thể khởi chạy Task khiến ALB trả về lỗi 503. Dù vậy, việc 100% request rác xuyên qua WAF và chạm tới tận ALB đã đủ bằng chứng cho thấy tường lửa lớp biên hoàn toàn vô hiệu trước các luồng tấn công tự động.
-  
+
   4. Từ đó, ta có bài toán ngoại suy như sau:
   - Kẻ tấn công dùng mạng Botnet gồm 1,000 IPs.
   - Mỗi IP chỉ gửi 1,500 requests / 5 phút.
