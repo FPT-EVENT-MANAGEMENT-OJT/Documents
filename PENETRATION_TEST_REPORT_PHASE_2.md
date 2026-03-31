@@ -12,7 +12,7 @@
 
 ## 1. TÓM TẮT SƠ BỘ BÁO CÁO
 
-Tiếp nối Giai đoạn 1, dự án FPT Event Management System đang được đội ngũ DevOps chuyển dịch lên nền tảng đám mây AWS thông qua mã nguồn Infrastructure as Code (Terraform). Tuy nhiên, kiến trúc hạ tầng hiện tại **CHƯA ĐẠT TIÊU CHUẨN AN TOÀN** để vận hành dữ liệu thực tế.
+Tiếp nối Giai đoạn 1, dự án FPT Event Management System được DevOps chuyển dịch lên nền tảng đám mây AWS thông qua mã nguồn Infrastructure as Code (Terraform). Tuy nhiên, kiến trúc hạ tầng hiện tại **CHƯA ĐẠT TIÊU CHUẨN AN TOÀN** để vận hành dữ liệu thực tế.
 
 Quá trình kiểm toán mã nguồn IaC và kiểm thử xâm nhập trên hạ tầng sống đã phát hiện 04 lỗ hổng bảo mật, trong đó có 01 lỗ hổng mức độ Nghiêm trọng (Critical) và 01 lỗ hổng mức độ Cao (High).
 
