@@ -261,22 +261,23 @@ Connection to RDS 10.0.1.136:3306 [tcp/mysql] succeeded!
   *Ghi chú kỹ thuật:* Do Docker Image chưa được đẩy lên ECR và cấu hình `ecs.tf` chưa cập nhật *(test trên hệ thống tự build)*, ECS không thể khởi chạy Task khiến ALB trả về lỗi 503. Dù vậy, việc 100% request rác xuyên qua WAF và chạm tới tận ALB đã đủ bằng chứng cho thấy tường lửa lớp biên hoàn toàn vô hiệu trước các luồng tấn công tự động.
 
   4. Từ đó, ta có bài toán ngoại suy như sau:
-  - Kẻ tấn công dùng mạng Botnet gồm 1,000 IPs.
-  - Mỗi IP chỉ gửi **1,500 requests / 5 phút**.
-  - Tổng lưu lượng: **1,500,000 requests / 5 phút**.
-  - Tốc độ bắn phá: 1,500,000 / 300 = **5,000 req/s**
-  Chi phí ước tính trong 24h tấn công liên tục:
-    1. Chi phí ALB LCU:
-    - Số LCU tiêu thụ: 5,000 / 25 = **200** LCUs
-    - Chi phí LCUs trong 1 ngày: 200 * \$0.008 * 24 = **$38.4** mỗi ngày.
-    * [Nguồn tham khảo: AWS Elastic Load Balancing Pricing - Region: ap-southeast-1](https://aws.amazon.com/elasticloadbalancing/pricing/)
-    2. Chi phí CloudWatch Logs:
-    - Tổng số requests/ngày: 5,000 x 3,600 x 24 = **432,000,000 requests**.
-    - Tổng dung lượng Log: 432,000,000 x 0.5 = 216,000,000 KB = **216 GB**.
-    - Chi phí log trong 1 ngày: 216 GB x \$0.5 = **\$108.0**.
-    * [Nguồn tham khảo: Amazon CloudWatch Pricing - Region: ap-southeast-1](https://aws.amazon.com/cloudwatch/pricing/)
-  
-    **=>** Tổng thiệt hại ước tính: **\$38.4 + \$108.0 = \$146.4** mỗi ngày
+    - Kẻ tấn công dùng mạng Botnet gồm 1,000 IPs.
+    - Mỗi IP chỉ gửi **1,500 requests / 5 phút**.
+    - Tổng lưu lượng: **1,500,000 requests / 5 phút**.
+    - Tốc độ bắn phá: 1,500,000 / 300 = **5,000 req/s**
+    Chi phí ước tính trong 24h tấn công liên tục:
+      **A. Chi phí ALB LCU:**
+      - Số LCU tiêu thụ: 5,000 / 25 = **200** LCUs
+      - Chi phí LCUs trong 1 ngày: 200 * 0.008 USD * 24 = **38.4 USD** mỗi ngày.
+      * [Nguồn tham khảo: AWS Elastic Load Balancing Pricing - Region: ap-southeast-1](https://aws.amazon.com/elasticloadbalancing/pricing/)
+
+      **B. Chi phí CloudWatch Logs:**
+      - Tổng số requests/ngày: 5,000 x 3,600 x 24 = **432,000,000 requests**.
+      - Tổng dung lượng Log: 432,000,000 x 0.5 = 216,000,000 KB = **216 GB**.
+      - Chi phí log trong 1 ngày: 216 GB x 0.5 USD = **108.0 USD**.
+      * [Nguồn tham khảo: Amazon CloudWatch Pricing - Region: ap-southeast-1](https://aws.amazon.com/cloudwatch/pricing/)
+
+      **=> Tổng thiệt hại ước tính: 38.4 USD + 108.0 USD = 146.4 USD mỗi ngày**
 * **Tác động:** Phương pháp ngoại suy cho thấy ngưỡng Rate Limit hiện tại là quá lỏng lẻo và dễ dàng bị qua mặt bởi các mạng Botnet phân tán. Kẻ tấn công chỉ cần chia nhỏ lưu lượng để lách WAF, tạo ra một cuộc tấn công cạn kiệt tài chính (EDoS). Với kịch bản giả định trên, dự án sẽ thiệt hại gần 150 USD mỗi ngày chỉ tính riêng trên tầng Load Balancer và Log nội bộ. Nếu cuộc tấn công âm thầm kéo dài, ngân sách Cloud của dự án sẽ bị bòn rút nghiêm trọng mà hệ thống cảnh báo của AWS WAF không hề ghi nhận IP nào vi phạm.
 * **Khuyến nghị khắc phục:**
   * **DevOps:** Bổ sung khối `rate_based_statement` vào cấu hình AWS WAF, thiết lập Scope-down statement nhắm đích danh vào các URI Path nhạy cảm. Đặt ngưỡng giới hạn khắt khe (ví dụ: Chặn tự động IP tại cấp độ CloudFront nếu vượt quá 50 requests/5 phút).

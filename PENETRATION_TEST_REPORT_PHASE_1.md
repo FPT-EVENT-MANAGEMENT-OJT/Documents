@@ -260,7 +260,7 @@ Dự án FPT Event Management System hiện tại **CHƯA ĐỦ ĐIỀU KIỆN A
     * **Client-Side Access Control Bypass:** Frontend sử dụng đối tượng `user` lưu dưới dạng JSON plain-text trong `localStorage` để quyết định hiển thị Menu và Route dành riêng cho Admin/Staff.
   * **Proof of Concept (PoC):**
     1. Đăng nhập vào hệ thống bằng tài khoản sinh viên (email: <an.nvse14001@fpt.edu.vn>; role: STUDENT).
-    2. F12 mở Developer Tools ${\rightarrow}$ Application/Storage ${\rightarrow}$ Local Storage.
+    2. F12 mở Developer Tools -> Application/Storage -> Local Storage.
     3. Quan sát thấy JWT Token được lưu tại key `token`, thông tin người dùng lưu tại `user`.
     4. Thực hiện chỉnh sửa giá trị của key `user`, thay đổi `"role":"STUDENT"` thành `"role":"ADMIN"`.
     5. Tải lại trang (F5), hệ thống Frontend bị đánh lừa và hiển thị toàn bộ giao diện, chức năng dành riêng cho Quản trị viên hệ thống.
