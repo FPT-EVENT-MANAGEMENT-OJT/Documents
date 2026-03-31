@@ -14,7 +14,7 @@
 
 Tiếp nối Giai đoạn 1, dự án FPT Event Management System được DevOps chuyển dịch lên nền tảng đám mây AWS thông qua mã nguồn Infrastructure as Code (Terraform). Tuy nhiên, kiến trúc hạ tầng hiện tại **CHƯA ĐẠT TIÊU CHUẨN AN TOÀN** để vận hành dữ liệu thực tế.
 
-Quá trình kiểm toán mã nguồn IaC và kiểm thử xâm nhập trên hạ tầng sống đã phát hiện 04 lỗ hổng bảo mật, trong đó có 01 lỗ hổng mức độ Nghiêm trọng (Critical) và 01 lỗ hổng mức độ Cao (High).
+Quá trình kiểm toán mã nguồn IaC và kiểm thử xâm nhập trên hạ tầng sống đã phát hiện 04 lỗ hổng bảo mật, trong đó có 01 lỗ hổng mức độ Nghiêm trọng (Critical) và 02 lỗ hổng mức độ Cao (High).
 
 Sự kết hợp giữa việc rò rỉ khóa bí mật trong mã nguồn, tường lửa lớp biên (Bastion) mở công khai và phân quyền mạng nội bộ lỏng lẻo đã tạo ra một Chuỗi tấn công (Kill Chain) hoàn chỉnh. Kẻ tấn công từ Internet có thể vượt qua toàn bộ các lớp phòng thủ VPC để chiếm quyền kiểm soát trực tiếp cơ sở dữ liệu RDS nội bộ. Để hệ thống đạt điều kiện nghiệm thu, đội ngũ dự án buộc phải tái cấu trúc phương thức quản trị máy chủ (loại bỏ Bastion Host) và tích hợp các dịch vụ quản lý Secret chuyên dụng của AWS.
 
@@ -50,7 +50,7 @@ Sự kết hợp giữa việc rò rỉ khóa bí mật trong mã nguồn, tư�
 |--------|--------------------------------------------------------|----------------------------|----------|------------|-------|
 | CLD-01 | Compromised Bastion Host via Exposed SSH Key & Open SG | Security Misconfiguration  | Critical | 9.8        | Open  |
 | CLD-02 | Hardcoded RDS Credentials in Infrastructure Code       | Secret Management Failures | High     | 7.5        | Open  |
-| CLD-03 | Overly Permissive RDS Security Group                   | Broken Access Control      | Medium   | 6.5        | Open  |
+| CLD-03 | Overly Permissive RDS Security Group                   | Broken Access Control      | High   | 8.8       | Open  |
 | CLD-04 | Missing Targeted Edge Rate Limiting (WAF)              | Insecure Design            | Medium   | 5.3        | Open  |
 
 ### CLD-01. Compromised Bastion Host via Exposed SSH Key & Open Security Group
@@ -154,8 +154,8 @@ Connection to RDS 10.0.1.136:3306 [tcp/mysql] succeeded!
 
 ### CLD-03. Overly Permissive RDS Security Group
 
-* **Mức độ:** Trung bình.
-* **CVSS:** 6.5 `CVSS:3.1/AV:A/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N`.
+* **Mức độ:** Cao.
+* **CVSS:** 8.8 `CVSS:3.1/AV:A/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H`.
 * **Mô tả:** Tường lửa lớp hạ tầng của Cơ sở dữ liệu (`aws_security_group.rds`) đang được cấu hình cho phép nhận kết nối Inbound đến cổng 3306 từ toàn bộ dải mạng VPC nội bộ, thay vì áp dụng nguyên tắc đặc quyền tối thiểu.
 * **PoC:**
   1. Phân tích tệp `database.tf` cho thấy quy tắc Ingress sử dụng toàn bộ dải CIDR của VPC:
@@ -262,20 +262,21 @@ Connection to RDS 10.0.1.136:3306 [tcp/mysql] succeeded!
 
   4. Từ đó, ta có bài toán ngoại suy như sau:
   - Kẻ tấn công dùng mạng Botnet gồm 1,000 IPs.
-  - Mỗi IP chỉ gửi 1,500 requests / 5 phút.
-  - Tổng lưu lượng: 1,500,000 requests / 5 phút.
-  - Tốc độ bắn phá: 1,500,000 / 300 = 5,000 req/s
+  - Mỗi IP chỉ gửi **1,500 requests / 5 phút**.
+  - Tổng lưu lượng: **1,500,000 requests / 5 phút**.
+  - Tốc độ bắn phá: 1,500,000 / 300 = **5,000 req/s**
   Chi phí ước tính trong 24h tấn công liên tục:
     1. Chi phí ALB LCU:
-    - Số LCU tiêu thụ: 5,000 / 25 = 200 LCUs
-    - Chi phí mỗi ngày: 200 * \$0.008 * 24 = $38.4 mỗi ngày.
+    - Số LCU tiêu thụ: 5,000 / 25 = **200** LCUs
+    - Chi phí LCUs trong 1 ngày: 200 * \$0.008 * 24 = **$38.4** mỗi ngày.
     * [Nguồn tham khảo: AWS Elastic Load Balancing Pricing - Region: ap-southeast-1](https://aws.amazon.com/elasticloadbalancing/pricing/)
     2. Chi phí CloudWatch Logs:
-    - Tổng số requests/ngày: ${5,000 \times 3,600 \times 24 = 432,000,000 requests}$.
-    - Tổng dung lượng Log: ${432,000,000 \times 0.5 = 216,000,000 KB = 216 GB}$.
-    - Chi phí log trong 1 ngày: ${216 GB \times \$0.5 = \$108.0}$.
+    - Tổng số requests/ngày: 5,000 x 3,600 x 24 = **432,000,000 requests**.
+    - Tổng dung lượng Log: 432,000,000 x 0.5 = 216,000,000 KB = **216 GB**.
+    - Chi phí log trong 1 ngày: 216 GB x \$0.5 = **\$108.0**.
     * [Nguồn tham khảo: Amazon CloudWatch Pricing - Region: ap-southeast-1](https://aws.amazon.com/cloudwatch/pricing/)
-  => Tổng thiệt hại ước tính: ${\$38.4 + \$108.0 = \$146.4}$ mỗi ngày
+  
+    **=>** Tổng thiệt hại ước tính: **\$38.4 + \$108.0 = \$146.4** mỗi ngày
 * **Tác động:** Phương pháp ngoại suy cho thấy ngưỡng Rate Limit hiện tại là quá lỏng lẻo và dễ dàng bị qua mặt bởi các mạng Botnet phân tán. Kẻ tấn công chỉ cần chia nhỏ lưu lượng để lách WAF, tạo ra một cuộc tấn công cạn kiệt tài chính (EDoS). Với kịch bản giả định trên, dự án sẽ thiệt hại gần 150 USD mỗi ngày chỉ tính riêng trên tầng Load Balancer và Log nội bộ. Nếu cuộc tấn công âm thầm kéo dài, ngân sách Cloud của dự án sẽ bị bòn rút nghiêm trọng mà hệ thống cảnh báo của AWS WAF không hề ghi nhận IP nào vi phạm.
 * **Khuyến nghị khắc phục:**
   * **DevOps:** Bổ sung khối `rate_based_statement` vào cấu hình AWS WAF, thiết lập Scope-down statement nhắm đích danh vào các URI Path nhạy cảm. Đặt ngưỡng giới hạn khắt khe (ví dụ: Chặn tự động IP tại cấp độ CloudFront nếu vượt quá 50 requests/5 phút).
