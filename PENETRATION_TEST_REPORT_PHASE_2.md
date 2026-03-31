@@ -56,7 +56,7 @@ Sự kết hợp giữa việc rò rỉ khóa bí mật trong mã nguồn, tư�
 ### CLD-01. Compromised Bastion Host via Exposed SSH Key & Open Security Group
 
 * **Mức độ:** Nghiêm trọng.
-* **CVSS:** 9.8 (CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H).
+* **CVSS:** 9.8 `CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H`.
 * **Mô tả:** Quá trình quản lý mã nguồn đã để lọt file Private Key `fpt-bastion-ssh` lên kho lưu trữ chung. Cùng lúc đó, AWS Security Group của *Bastion Host* tại `bastion-host.tf` đang mở cổng 22 (SSH) cho toàn bộ dải IP trên Internet (0.0.0.0/0). Điều này biến Bastion Host thành điểm xâm nhập trực tiếp vào mạng VPC nội bộ.
 * **PoC:**
   1. Kẻ tấn công truy cập kho lưu trữ Git bị rò rỉ, tải về file `fpt-bastion-ssh`. Phân tích mã nguồn IaC cho thấy mục tiêu nằm tại `ap-southeast-1` và sử dụng tài khoản mặc định `ec2-user`.
@@ -113,8 +113,6 @@ Identifying 54.254.225.117
 Identifying 54.254.225.128
 Identifying 54.254.225.155
 Identifying 54.254.225.216
-uid=1000(ec2-user) gid=1000(ec2-user) groups=1000(ec2-user),4(adm),10(wheel),190(systemd-journal),993(docker) context=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023
-ip-10-0-101-231.ap-southeast-1.compute.internal
 Bastion Host Found At: 54.254.225.216
 ** WARNING: connection is not using a post-quantum key exchange algorithm.
 ** This session may be vulnerable to "store now, decrypt later" attacks.
@@ -128,7 +126,7 @@ Lateral Move to RDS:
 Connection to RDS 10.0.1.136:3306 [tcp/mysql] succeeded!
 ```
 
-* **Tác động:** Lỗ hổng này cung cấp cho kẻ tấn công quyền truy cập ban đầu (Initial Access) vào môi trường ranh giới của mạng đám mây. Việc sử dụng kỹ thuật "Key Spraying" (Rải khóa tự động) chứng minh rằng IP động không mang lại bất kỳ giá trị phòng thủ nào trước các chiến dịch rà quét tự động (Masscan/Botnet). Khi đã chiếm được Bastion Host, kẻ tấn công hoàn toàn có thể sử dụng máy chủ này làm trạm trung chuyển (Pivot) để rà quét toàn bộ mạng nội bộ và tiến hành các bước tiếp theo trong chuỗi Kill Chain nhắm vào cơ sở dữ liệu (Database).
+* **Tác động:** Lỗ hổng này cung cấp cho kẻ tấn công quyền truy cập ban đầu vào môi trường ranh giới của mạng đám mây. Việc sử dụng kỹ thuật "Key Spraying" (Rải khóa tự động) chứng minh rằng IP động không mang lại bất kỳ giá trị phòng thủ nào trước các chiến dịch rà quét tự động (Masscan/Botnet). Khi đã chiếm được Bastion Host, kẻ tấn công hoàn toàn có thể sử dụng máy chủ này làm trạm trung chuyển để rà quét toàn bộ mạng nội bộ và tiến hành các bước tiếp theo trong chuỗi Kill Chain nhắm vào cơ sở dữ liệu.
 
 * **Khuyến nghị khắc phục:**
   * Loại bỏ hoàn toàn kiến trúc Bastion Host truyền thống (Xóa resource aws_instance.bastion). Hủy bỏ quy tắc Ingress mở cổng 22 ra 0.0.0.0/0.
@@ -137,7 +135,7 @@ Connection to RDS 10.0.1.136:3306 [tcp/mysql] succeeded!
 ### CLD-02. Hardcoded RDS Credentials in Infrastructure Code
 
 * **Mức độ:** Cao.
-* **CVSS:** 7.5 (CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N)
+* **CVSS:** 7.5 `CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N`.
 * **Mô tả:** Thông tin xác thực cấp quản trị viên của dịch vụ Amazon RDS đang được lưu trữ dưới dạng bản rõ (Plaintext) trực tiếp trong tệp cấu hình `database.tf`. Đây là vi phạm nghiêm trọng trong quản lý vòng đời bí mật trong kỷ nguyên Cloud-Native.
 * **PoC:** Phân tích tĩnh tệp mã nguồn `database.tf` ghi nhận đoạn mã cấu hình bị hardcode:
 
@@ -149,7 +147,7 @@ Connection to RDS 10.0.1.136:3306 [tcp/mysql] succeeded!
   }
   ```
 
-* **Tác động:** Thông tin xác thực cấp quản trị (root credentials) của Cơ sở dữ liệu bị bộc lộ hoàn toàn dưới dạng bản rõ. Hệ quả trực tiếp là bất kỳ cá nhân, tiến trình hoặc công cụ nào có quyền đọc (read-access) kho lưu trữ mã nguồn Terraform này đều lập tức nắm giữ thông tin đăng nhập tĩnh của RDS. Lỗ hổng này cung cấp trực tiếp mảnh ghép "Định danh hợp lệ", loại bỏ hoàn toàn rào cản xác thực mà không cần kẻ tấn công phải thực hiện bất kỳ kỹ thuật dò đoán (brute-force) hay bẻ khóa nào.
+* **Tác động:** Thông tin xác root của Cơ sở dữ liệu bị bộc lộ hoàn toàn dưới dạng bản rõ. Hệ quả trực tiếp là bất kỳ cá nhân, tiến trình hoặc công cụ nào có quyền đọc (read-access) kho lưu trữ mã nguồn Terraform này đều lập tức nắm giữ thông tin đăng nhập tĩnh của RDS. Lỗ hổng này cung cấp trực tiếp mảnh ghép "Định danh hợp lệ", loại bỏ hoàn toàn rào cản xác thực mà không cần kẻ tấn công phải thực hiện bất kỳ kỹ thuật dò đoán (brute-force) hay bẻ khóa nào.
 * **Khuyến nghị khắc phục:** 
   * Khởi tạo mật khẩu động thông qua resource **random_password** trong Terraform thay vì gán giá trị chuỗi tĩnh.
   * Đẩy mật khẩu này vào lưu trữ tại **AWS Secrets Manager** hoặc **AWS SSM Parameter Store**. Các tài nguyên cần sử dụng mật khẩu (như ECS Task Definitions) sẽ gọi biến môi trường trực tiếp từ dịch vụ Secret thay vì đọc từ mã nguồn IaC.
@@ -157,7 +155,7 @@ Connection to RDS 10.0.1.136:3306 [tcp/mysql] succeeded!
 ### CLD-03. Overly Permissive RDS Security Group
 
 * **Mức độ:** Trung bình.
-* **CVSS:** 6.5 (CVSS:3.1/AV:A/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N).
+* **CVSS:** 6.5 `CVSS:3.1/AV:A/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N`.
 * **Mô tả:** Tường lửa lớp hạ tầng của Cơ sở dữ liệu (`aws_security_group.rds`) đang được cấu hình cho phép nhận kết nối Inbound đến cổng 3306 từ toàn bộ dải mạng VPC nội bộ, thay vì áp dụng nguyên tắc đặc quyền tối thiểu.
 * **PoC:**
   1. Phân tích tệp `database.tf` cho thấy quy tắc Ingress sử dụng toàn bộ dải CIDR của VPC:
@@ -208,7 +206,7 @@ Connection to RDS 10.0.1.136:3306 [tcp/mysql] succeeded!
 ### CLD-04. Missing Targeted Edge Rate Limiting (WAF)
 
 * **Mức độ:** Trung bình.
-* **CVSS:** 5.3 (CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L).
+* **CVSS:** 5.3 `CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L`.
 * **Mô tả:** Cấu hình bảo mật tại lớp biên (`waf.tf`) chỉ thiết lập giới hạn Rate Limit ở mức tổng thể cho CloudFront (2000 requests/5 phút). Hệ thống thiếu các quy tắc nhắm mục tiêu (Targeted Rules) khắt khe hơn cho các endpoint API nhạy cảm. Mặc dù Dev đã chủ động tự viết code chống Spam/Brute-force trong mã nguồn Backend, việc thiết kế thiếu lớp khiên WAF chuyên dụng này đã tạo ra một kiến trúc Anti-pattern, dẫn đến nguy cơ tấn công cạn kiệt tài nguyên tính toán và tài chính (EDoS).
 * **PoC:** 
   1. Kẻ tấn công sử dụng công cụ dòng lệnh (bash script) gửi liên tục 500 requests nhắm vào API quên mật khẩu trong vòng 1 phút. Theo lý thuyết, WAF cấu hình chuẩn sẽ chặn đứng IP này ở request thứ 50.
@@ -239,6 +237,7 @@ Connection to RDS 10.0.1.136:3306 [tcp/mysql] succeeded!
   ```
 
   3. Truy cập giao diện AWS CloudWatch Logs Insights để kiểm tra lượng truy cập lọt lưới. Lệnh truy vấn trực tiếp vào trường `@message` xác nhận có tổng cộng 489 requests đã vượt qua hoàn toàn hàng rào WAF lớp biên và đâm thẳng vào tầng Compute.
+  ```Log
   **CloudWatch Logs Insights**    
   region: ap-southeast-1    
   log-group-prefixes:     
@@ -250,6 +249,7 @@ Connection to RDS 10.0.1.136:3306 [tcp/mysql] succeeded!
   end-time: 0s    
   query-string:
   ```
+  ```
   fields @timestamp, @message
   | filter @message like "/api/forgot-password"
   | stats count(*) as Total_Bypassed_Requests
@@ -258,7 +258,7 @@ Connection to RDS 10.0.1.136:3306 [tcp/mysql] succeeded!
   | --- |
   | 489 |
 
-  *Ghi chú kỹ thuật:* Do Docker Image chưa được đẩy lên ECR và cấu hình `ecs.tf` chưa cập nhật, ECS không thể khởi chạy Task khiến ALB trả về lỗi 503. Dù vậy, việc 100% request rác xuyên qua WAF và chạm tới tận ALB đã đủ bằng chứng cho thấy tường lửa lớp biên hoàn toàn vô hiệu trước các luồng tấn công tự động.
+  *Ghi chú kỹ thuật:* Do Docker Image chưa được đẩy lên ECR và cấu hình `ecs.tf` chưa cập nhật *(test trên hệ thống tự build)*, ECS không thể khởi chạy Task khiến ALB trả về lỗi 503. Dù vậy, việc 100% request rác xuyên qua WAF và chạm tới tận ALB đã đủ bằng chứng cho thấy tường lửa lớp biên hoàn toàn vô hiệu trước các luồng tấn công tự động.
   4. Từ đó, ta có bài toán ngoại suy như sau:
   - Kẻ tấn công dùng mạng Botnet gồm 1,000 IPs.
   - Mỗi IP chỉ gửi 1,500 requests / 5 phút.
@@ -267,14 +267,14 @@ Connection to RDS 10.0.1.136:3306 [tcp/mysql] succeeded!
   Chi phí ước tính trong 24h tấn công liên tục:
     1. Chi phí ALB LCU:
     - Số LCU tiêu thụ: 5,000 / 25 = 200 LCUs
-    - Chi phí 1 ngày: 200 * $0.008 * 24 = $38.4 / ngày.
+    - Chi phí mỗi ngày: 200 * \$0.008 * 24 = $38.4 mỗi ngày.
     * [Nguồn tham khảo: AWS Elastic Load Balancing Pricing - Region: ap-southeast-1](https://aws.amazon.com/elasticloadbalancing/pricing/)
     2. Chi phí CloudWatch Logs:
-    - Tổng số requests/ngày: 5,000 * 3600 * 24 = 432,000,000 requests.
-    - Tổng dung lượng Log: 432,000,000 * 0.5 = 216,000,000 KB = 216 GB
-    - Chi phí log trong 1 ngày: 216 GB * $0.5 = $108.0
+    - Tổng số requests/ngày: ${5,000 \times 3,600 \times 24 = 432,000,000 requests}$.
+    - Tổng dung lượng Log: ${432,000,000 \times 0.5 = 216,000,000 KB = 216 GB}$.
+    - Chi phí log trong 1 ngày: ${216 GB \times \$0.5 = \$108.0}$.
     * [Nguồn tham khảo: Amazon CloudWatch Pricing - Region: ap-southeast-1](https://aws.amazon.com/cloudwatch/pricing/)
-  => Tổng thiệt hại ước tính: $38.4 + $108.0 = $146.4 mỗi ngày
+  => Tổng thiệt hại ước tính: ${\$38.4 + \$108.0 = \$146.4}$ mỗi ngày
 * **Tác động:** Phương pháp ngoại suy cho thấy ngưỡng Rate Limit hiện tại là quá lỏng lẻo và dễ dàng bị qua mặt bởi các mạng Botnet phân tán. Kẻ tấn công chỉ cần chia nhỏ lưu lượng để lách WAF, tạo ra một cuộc tấn công cạn kiệt tài chính (EDoS). Với kịch bản giả định trên, dự án sẽ thiệt hại gần 150 USD mỗi ngày chỉ tính riêng trên tầng Load Balancer và Log nội bộ. Nếu cuộc tấn công âm thầm kéo dài, ngân sách Cloud của dự án sẽ bị bòn rút nghiêm trọng mà hệ thống cảnh báo của AWS WAF không hề ghi nhận IP nào vi phạm.
 * **Khuyến nghị khắc phục:**
   * **DevOps:** Bổ sung khối `rate_based_statement` vào cấu hình AWS WAF, thiết lập Scope-down statement nhắm đích danh vào các URI Path nhạy cảm. Đặt ngưỡng giới hạn khắt khe (ví dụ: Chặn tự động IP tại cấp độ CloudFront nếu vượt quá 50 requests/5 phút).
