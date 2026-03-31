@@ -259,6 +259,7 @@ Connection to RDS 10.0.1.136:3306 [tcp/mysql] succeeded!
   | 489 |
 
   *Ghi chú kỹ thuật:* Do Docker Image chưa được đẩy lên ECR và cấu hình `ecs.tf` chưa cập nhật *(test trên hệ thống tự build)*, ECS không thể khởi chạy Task khiến ALB trả về lỗi 503. Dù vậy, việc 100% request rác xuyên qua WAF và chạm tới tận ALB đã đủ bằng chứng cho thấy tường lửa lớp biên hoàn toàn vô hiệu trước các luồng tấn công tự động.
+  
   4. Từ đó, ta có bài toán ngoại suy như sau:
   - Kẻ tấn công dùng mạng Botnet gồm 1,000 IPs.
   - Mỗi IP chỉ gửi 1,500 requests / 5 phút.
